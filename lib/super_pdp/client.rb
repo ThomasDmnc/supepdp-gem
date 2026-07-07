@@ -74,14 +74,14 @@ module SuperPDP
     # Iterate a list endpoint across all pages, yielding each item.
     # Uses the API's cursor pagination (starting_after_id + has_after).
     # Returns an Enumerator when no block is given.
-    def each_item(path, **params)
+    def each_item(path, **params, &block)
       return enum_for(:each_item, path, **params) unless block_given?
 
       cursor = params[:starting_after_id]
       loop do
         page = get(path, params.merge(starting_after_id: cursor).compact)
         data = page["data"] || []
-        data.each { |item| yield item }
+        data.each(&block)
         break unless page["has_after"] && !data.empty?
 
         cursor = data.last["id"]
@@ -116,7 +116,7 @@ module SuperPDP
 
     # Encode array params as repeated `key[]=v` pairs (matches expand[] etc).
     def flatten_query(query)
-      query.reject { |_, v| v.nil? }.flat_map do |k, v|
+      query.compact.flat_map do |k, v|
         v.is_a?(Array) ? v.map { |item| ["#{k}[]", item] } : [[k.to_s, v]]
       end
     end

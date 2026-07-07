@@ -1,0 +1,43 @@
+plugins:
+  - rubocop-minitest
+  - rubocop-rake
+
+AllCops:
+  TargetRubyVersion: 3.0
+  NewCops: enable
+
+# Match the existing codebase style.
+Style/StringLiterals:
+  EnforcedStyle: double_quotes
+
+# The client leans on endless methods and compact one-liners by design.
+Style/Documentation:
+  Enabled: false
+
+Metrics/MethodLength:
+  Max: 20
+  Exclude:
+    - "test/**/*"
+
+Metrics/AbcSize:
+  Max: 25
+
+# Keyword args form the client's config API; they aren't a "too many params" smell.
+Metrics/ParameterLists:
+  CountKeywordArgs: false
+
+# Dev deps live in the gemspec by design (standard for a gem).
+Gemspec/DevelopmentDependencies:
+  Enabled: false
+
+# The hand-rolled TCP test harness has a long dispatch case and long methods.
+Metrics/ClassLength:
+  Enabled: false
+
+Metrics/BlockLength:
+  Exclude:
+    - "test/**/*"
+
+Metrics/CyclomaticComplexity:
+  Exclude:
+    - "test/**/*"

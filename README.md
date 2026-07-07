@@ -5,6 +5,15 @@ send and receive invoices under France's e-invoicing reform (Peppol network).
 
 Stdlib only (`net/http` + `json`). No Faraday, no generated model classes.
 
+> **Unofficial.** This is an independent, community-maintained client. It is
+> **not** affiliated with, endorsed by, or supported by SUPER PDP. "SUPER PDP"
+> and any related marks belong to their respective owners; they are used here
+> only to describe what this gem talks to (nominative use). The gem calls the
+> publicly documented HTTP API — no proprietary code is included — and is
+> provided "as is" under the MIT license, with no warranty. The maintainer may
+> update or **yank this gem from RubyGems at any time**; pin a version if you
+> depend on it.
+
 ## Install
 
 ```ruby
@@ -29,7 +38,8 @@ pdp = SuperPDP.new(access_token: "user-token")
 
 ```ruby
 pdp.companies_me
-pdp.create_invoice(en_invoice: { ... })
+pdp.create_invoice({ en_invoice: { ... } })   # body is a positional Hash
+pdp.create_invoice({ en_invoice: { ... } }, expand: %w[events])  # + query params
 pdp.invoice(42, expand: %w[en_invoice events])
 pdp.download_invoice(42)              # raw bytes (PDF/XML), not JSON
 pdp.create_invoice_event(invoice_id: 42, status: "fr:204")
@@ -56,5 +66,23 @@ Responses are parsed JSON (`Hash`/`Array`). Non-2xx raises `SuperPDP::APIError`
 ## Test
 
 ```
-ruby -Ilib -Itest test/test_super_pdp.rb
+bundle exec rake test     # or: bundle exec rake  (runs tests + rubocop)
 ```
+
+## Contributing
+
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). In short:
+open an issue to discuss anything non-trivial, then send a PR with `bundle exec
+rake` (tests + rubocop) passing.
+
+## Releasing (maintainers)
+
+Bump `SuperPDP::VERSION`, update `CHANGELOG.md`, then:
+
+```
+bundle exec rake release   # tags the version and pushes the .gem to RubyGems
+```
+
+## License
+
+MIT — see [LICENSE.txt](LICENSE.txt).

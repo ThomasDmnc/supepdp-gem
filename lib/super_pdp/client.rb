@@ -26,6 +26,7 @@ module SuperPDP
       @open_timeout = open_timeout
       @read_timeout = read_timeout
       @token_expires_at = nil
+      @token_mutex = Mutex.new
 
       return if access_token || (client_id && client_secret)
 
@@ -161,9 +162,13 @@ module SuperPDP
     # --- OAuth2 -----------------------------------------------------------
 
     def token
-      return @access_token if @access_token && !expired?
+      # Lock so a shared client in a threaded server (Puma/Sidekiq) doesn't
+      # race two concurrent refreshes. Double-checked inside the lock.
+      @token_mutex.synchronize do
+        return @access_token if @access_token && !expired?
 
-      fetch_client_credentials_token
+        fetch_client_credentials_token
+      end
     end
 
     def expired?

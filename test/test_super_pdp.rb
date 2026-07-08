@@ -234,4 +234,27 @@ class SuperPDPTest < Minitest::Test
     assert_equal 429, err.status
     assert_equal 7, err.retry_after
   end
+
+  def enroll_request
+    client(access_token: "tok-123").enroll_company(
+      enroll: { number: "552081317", number_scheme: "fr_siren" },
+      formal_agreement: [StringIO.new("%PDF-1.4 mandate"), "mandate.pdf", "application/pdf"]
+    )
+    @requests.find { |r| r[:path] == "/v1.beta/companies" && r[:method] == "POST" }
+  end
+
+  def test_enroll_company_sends_multipart_enroll_json_part
+    req = enroll_request
+
+    assert_match(%r{\Amultipart/form-data; boundary=}, req[:headers]["content-type"])
+    assert_match(/name="enroll"; filename="enroll.json"/, req[:body])
+    assert_match(/"number_scheme":"fr_siren"/, req[:body])
+  end
+
+  def test_enroll_company_sends_formal_agreement_file_part
+    req = enroll_request
+
+    assert_match(/name="formal_agreement"; filename="mandate.pdf"/, req[:body])
+    assert_match(/%PDF-1.4 mandate/, req[:body])
+  end
 end

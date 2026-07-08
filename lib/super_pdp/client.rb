@@ -3,6 +3,7 @@
 require "net/http"
 require "json"
 require "uri"
+require "stringio"
 
 module SuperPDP
   # Thin HTTP client for the SUPER PDP API.
@@ -46,8 +47,17 @@ module SuperPDP
     # --- Resource helpers (thin wrappers over the raw verbs) --------------
 
     def companies_me(**params) = get("/companies/me", params)
-    def enroll_company(body) = post("/companies", body)
     def update_company_vat_regime(body) = patch("/companies", body)
+
+    # Enroll a company. The API expects multipart/form-data: an +enroll+ JSON
+    # document plus a +formal_agreement+ file, with any extra KYC documents
+    # passed as additional file parts (e.g. kbis:, id_document:).
+    # Files accept a path String, an IO, or a [io_or_path, filename, content_type] triple.
+    def enroll_company(enroll:, formal_agreement:, **documents)
+      parts = [json_part("enroll", enroll), file_part("formal_agreement", formal_agreement)]
+      documents.each { |name, file| parts << file_part(name.to_s, file) }
+      request(:post, "/companies", multipart: parts)
+    end
 
     def invoices(**params) = get("/invoices", params)
     def invoice(id, **params) = get("/invoices/#{id}", params)
@@ -107,14 +117,14 @@ module SuperPDP
 
     # Retries transient failures (429 + 502/503/504 + connection errors) with
     # backoff for idempotent verbs only. See RETRYABLE_* constants.
-    def request(method, path, query: {}, body: nil, raw: false)
+    def request(method, path, query: {}, body: nil, multipart: nil, raw: false)
       uri = build_uri(path, query)
       attempt = 0
       loop do
         attempt += 1
         res =
           begin
-            perform(method, uri, body)
+            perform(method, uri, body, multipart)
           rescue *RETRYABLE_ERRORS
             raise unless retryable?(method, attempt)
 
@@ -129,8 +139,8 @@ module SuperPDP
 
     private
 
-    def perform(method, uri, body)
-      req = build_request(method, uri, body)
+    def perform(method, uri, body, multipart = nil)
+      req = build_request(method, uri, body, multipart)
       req["Authorization"] = "Bearer #{token}"
       http(uri).request(req)
     end
@@ -159,7 +169,7 @@ module SuperPDP
       end
     end
 
-    def build_request(method, uri, body)
+    def build_request(method, uri, body, multipart = nil)
       klass = {
         get: Net::HTTP::Get, post: Net::HTTP::Post,
         patch: Net::HTTP::Patch, delete: Net::HTTP::Delete
@@ -167,11 +177,26 @@ module SuperPDP
       req = klass.new(uri)
       req["Accept"] = "application/json"
       req["User-Agent"] = USER_AGENT
-      if body
+      if multipart
+        req.set_form(multipart, "multipart/form-data")
+      elsif body
         req["Content-Type"] = "application/json"
         req.body = body.is_a?(String) ? body : JSON.generate(body)
       end
       req
+    end
+
+    # Build a Net::HTTP#set_form part: an in-memory JSON document uploaded as a file.
+    def json_part(name, hash)
+      [name, StringIO.new(JSON.generate(hash)), { filename: "#{name}.json", content_type: "application/json" }]
+    end
+
+    # Normalize a file argument (path, IO, or [io_or_path, filename, content_type]) into a set_form part.
+    def file_part(name, file)
+      io_or_path, filename, content_type = Array(file)
+      io = io_or_path.respond_to?(:read) ? io_or_path : File.open(io_or_path, "rb")
+      filename ||= io.respond_to?(:path) ? File.basename(io.path) : name
+      [name, io, { filename: filename, content_type: content_type || "application/octet-stream" }]
     end
 
     def http(uri)

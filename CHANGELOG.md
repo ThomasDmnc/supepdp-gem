@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-07-08
+
+### Changed
+- **Breaking:** `enroll_company` now takes keyword arguments and sends
+  `multipart/form-data` (the API requires it). Call it as
+  `enroll_company(enroll: {...}, formal_agreement: file, **documents)` where
+  `enroll` is the company/KYC JSON document and files accept a path, an IO, or a
+  `[io, filename, content_type]` triple. The previous `enroll_company(json_body)`
+  form is removed.
+
+### Added
+- Multipart request support threaded through `request`/`build_request` via
+  `Net::HTTP#set_form`, used by `enroll_company`.
+
 ## [1.0.0] - 2026-07-08
 
 ### Fixed

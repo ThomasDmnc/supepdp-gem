@@ -43,7 +43,7 @@ helper when it clearly improves ergonomics.
 
 Open a GitHub issue for bugs. For anything sensitive (e.g. a credential-handling
 issue), email the maintainer at thomas.demoncy@gmail.com rather than filing a
-public issue.
+public issue — see [SECURITY.md](SECURITY.md).
 
 ## License
 

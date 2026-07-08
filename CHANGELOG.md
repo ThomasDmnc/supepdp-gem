@@ -7,6 +7,8 @@
   the OAuth2 token under concurrent requests).
 
 ### Added
+- Community files: `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1), `SECURITY.md`,
+  and GitHub issue/PR templates.
 - `User-Agent` header on every request (`super_pdp/<version> (Ruby <version>)`)
   so the server can identify the client and version.
 - Status-specific error subclasses of `APIError`: `UnauthorizedError` (401/403),

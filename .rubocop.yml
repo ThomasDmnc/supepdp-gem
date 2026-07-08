@@ -21,6 +21,9 @@ Metrics/MethodLength:
 
 Metrics/AbcSize:
   Max: 25
+  # The hand-rolled TCP test harness has a long response dispatch.
+  Exclude:
+    - "test/**/*"
 
 # Keyword args form the client's config API; they aren't a "too many params" smell.
 Metrics/ParameterLists:

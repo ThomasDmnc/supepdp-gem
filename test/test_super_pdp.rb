@@ -68,14 +68,30 @@ class SuperPDPTest < Minitest::Test
         end
       when "/v1.beta/boom"
         return http("422 Unprocessable Entity", JSON.generate(message: "nope"))
+      when "/v1.beta/flaky"
+        @flaky_hits = @flaky_hits.to_i + 1
+        return http("503 Service Unavailable", JSON.generate(message: "later")) if @flaky_hits < 3
+
+        JSON.generate(ok: true)
+      when "/v1.beta/always_503"
+        return http("503 Service Unavailable", JSON.generate(message: "down"))
+      when "/v1.beta/rate_limited"
+        @rl_hits = @rl_hits.to_i + 1
+        if @rl_hits < 2
+          return http("429 Too Many Requests", JSON.generate(message: "slow down"),
+                      headers: { "Retry-After" => "0" })
+        end
+
+        JSON.generate(ok: true)
       else
         "{}"
       end
     http("200 OK", body)
   end
 
-  def http(status, body, content_type = "application/json")
-    "HTTP/1.1 #{status}\r\nContent-Type: #{content_type}\r\n" \
+  def http(status, body, content_type = "application/json", headers: {})
+    extra = headers.map { |k, v| "#{k}: #{v}\r\n" }.join
+    "HTTP/1.1 #{status}\r\nContent-Type: #{content_type}\r\n#{extra}" \
       "Content-Length: #{body.bytesize}\r\nConnection: close\r\n\r\n#{body}"
   end
 
@@ -150,5 +166,36 @@ class SuperPDPTest < Minitest::Test
     err = assert_raises(SuperPDP::APIError) { client(access_token: "tok-123").get("/boom") }
     assert_equal 422, err.status
     assert_match(/nope/, err.message)
+  end
+
+  def test_retries_transient_5xx_then_succeeds
+    res = client(access_token: "tok-123", retry_base: 0).get("/flaky")
+
+    assert res["ok"]
+    assert_equal 3, paths.count("/v1.beta/flaky") # 2 failures + 1 success
+  end
+
+  def test_retries_exhausted_raises_api_error
+    err = assert_raises(SuperPDP::APIError) do
+      client(access_token: "tok-123", retry_base: 0, max_retries: 2).get("/always_503")
+    end
+
+    assert_equal 503, err.status
+    assert_equal 3, paths.count("/v1.beta/always_503") # 1 initial + 2 retries
+  end
+
+  def test_post_is_not_retried
+    assert_raises(SuperPDP::APIError) do
+      client(access_token: "tok-123", retry_base: 0).post("/always_503")
+    end
+
+    assert_equal 1, paths.count("/v1.beta/always_503")
+  end
+
+  def test_429_is_retried_honoring_retry_after
+    res = client(access_token: "tok-123", retry_base: 0).get("/rate_limited")
+
+    assert res["ok"]
+    assert_equal 2, paths.count("/v1.beta/rate_limited")
   end
 end

@@ -187,7 +187,16 @@ module SuperPDP
       body = raw ? res.body : parse_json(res.body)
       return body if status.between?(200, 299)
 
-      raise APIError.new(status, body)
+      raise error_for(status, body, res)
+    end
+
+    def error_for(status, body, res)
+      case status
+      when 401, 403 then UnauthorizedError.new(status, body)
+      when 404      then NotFoundError.new(status, body)
+      when 429      then RateLimitError.new(status, body, retry_after(res))
+      else               APIError.new(status, body)
+      end
     end
 
     def parse_json(str)

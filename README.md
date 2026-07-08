@@ -61,7 +61,10 @@ pdp.post("/some/new/route", { key: "value" })
 ```
 
 Responses are parsed JSON (`Hash`/`Array`). Non-2xx raises `SuperPDP::APIError`
-(`#status`, `#body`).
+(`#status`, `#body`), or a status-specific subclass you can rescue directly:
+`UnauthorizedError` (401/403), `NotFoundError` (404), `RateLimitError` (429, with
+`#retry_after` in seconds). All subclass `APIError`, so `rescue SuperPDP::APIError`
+still catches everything.
 
 ## Retries
 

@@ -9,6 +9,9 @@
 ### Added
 - `User-Agent` header on every request (`super_pdp/<version> (Ruby <version>)`)
   so the server can identify the client and version.
+- Status-specific error subclasses of `APIError`: `UnauthorizedError` (401/403),
+  `NotFoundError` (404), and `RateLimitError` (429, exposes `#retry_after`). Existing
+  `rescue SuperPDP::APIError` still catches all of them.
 - Automatic retries with backoff for transient failures (HTTP 429/502/503/504 and
   connection errors) on idempotent verbs (`GET`/`DELETE`). Honors `Retry-After`;
   configurable via `max_retries` and `retry_base`. POST/PATCH are never retried.

@@ -15,5 +15,23 @@ module SuperPDP
     end
   end
 
+  # Status-specific subclasses so callers can rescue by kind. All subclass
+  # APIError, so `rescue SuperPDP::APIError` still catches every non-2xx.
+  # 401, 403
+  class UnauthorizedError < APIError; end
+  # 404
+  class NotFoundError < APIError; end
+
+  # 429
+  class RateLimitError < APIError
+    attr_reader :retry_after # integer seconds from Retry-After, or nil
+
+    def initialize(status, body, retry_after = nil)
+      @retry_after = retry_after
+      super(status, body)
+    end
+  end
+
+  # Token/credential-refresh failures (not an HTTP APIError).
   class AuthError < Error; end
 end

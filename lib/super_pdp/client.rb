@@ -14,6 +14,7 @@ module SuperPDP
   class Client
     DEFAULT_BASE_URL = "https://api.superpdp.tech"
     API_PREFIX = "/v1.beta"
+    USER_AGENT = "super_pdp/#{VERSION} (Ruby #{RUBY_VERSION})".freeze
 
     # Transient failures retried automatically (idempotent verbs only).
     RETRYABLE_STATUSES = [429, 502, 503, 504].freeze
@@ -165,6 +166,7 @@ module SuperPDP
       }.fetch(method)
       req = klass.new(uri)
       req["Accept"] = "application/json"
+      req["User-Agent"] = USER_AGENT
       if body
         req["Content-Type"] = "application/json"
         req.body = body.is_a?(String) ? body : JSON.generate(body)
@@ -220,6 +222,7 @@ module SuperPDP
       uri = URI.join(@base_url, "/oauth2/token")
       req = Net::HTTP::Post.new(uri)
       req["Accept"] = "application/json"
+      req["User-Agent"] = USER_AGENT
       req.set_form_data(
         grant_type: "client_credentials",
         client_id: @client_id,

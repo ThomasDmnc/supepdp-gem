@@ -198,4 +198,11 @@ class SuperPDPTest < Minitest::Test
     assert res["ok"]
     assert_equal 2, paths.count("/v1.beta/rate_limited")
   end
+
+  def test_sends_user_agent_header
+    client(access_token: "tok-123").companies_me
+    ua = @requests.find { |r| r[:path] == "/v1.beta/companies/me" }[:headers]["user-agent"]
+
+    assert_match %r{\Asuper_pdp/\d}, ua
+  end
 end

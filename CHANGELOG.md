@@ -7,6 +7,9 @@
   the OAuth2 token under concurrent requests).
 
 ### Added
+- Automatic retries with backoff for transient failures (HTTP 429/502/503/504 and
+  connection errors) on idempotent verbs (`GET`/`DELETE`). Honors `Retry-After`;
+  configurable via `max_retries` and `retry_base`. POST/PATCH are never retried.
 - `LICENSE.txt`, gemspec metadata, `Rakefile`, `Gemfile`, rubocop config, and CI.
 - Wider test coverage: token expiry/refresh, raw byte downloads, JSON request
   bodies, and the non-JSON response fallback.

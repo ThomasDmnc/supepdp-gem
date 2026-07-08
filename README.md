@@ -63,6 +63,19 @@ pdp.post("/some/new/route", { key: "value" })
 Responses are parsed JSON (`Hash`/`Array`). Non-2xx raises `SuperPDP::APIError`
 (`#status`, `#body`).
 
+## Retries
+
+Transient failures on **idempotent** requests (`GET`/`DELETE`) are retried
+automatically: HTTP 429 and 502/503/504, plus connection errors. The server's
+`Retry-After` header is honored; otherwise it backs off exponentially. `POST`
+and `PATCH` are never retried (a half-applied write is worse than an error).
+
+```ruby
+SuperPDP.new(client_id: "...", client_secret: "...",
+             max_retries: 2,    # total attempts = max_retries + 1 (default 2)
+             retry_base: 0.5)   # backoff seconds: retry_base * 2**(attempt-1)
+```
+
 ## Test
 
 ```

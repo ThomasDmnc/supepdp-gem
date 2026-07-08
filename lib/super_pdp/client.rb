@@ -15,16 +15,25 @@ module SuperPDP
     DEFAULT_BASE_URL = "https://api.superpdp.tech"
     API_PREFIX = "/v1.beta"
 
+    # Transient failures retried automatically (idempotent verbs only).
+    RETRYABLE_STATUSES = [429, 502, 503, 504].freeze
+    RETRYABLE_METHODS = %i[get delete].freeze
+    RETRYABLE_ERRORS = [Net::OpenTimeout, Net::ReadTimeout, Errno::ECONNRESET,
+                        Errno::ECONNREFUSED, IOError].freeze
+
     attr_reader :base_url
 
     def initialize(access_token: nil, client_id: nil, client_secret: nil,
-                   base_url: DEFAULT_BASE_URL, open_timeout: 10, read_timeout: 60)
+                   base_url: DEFAULT_BASE_URL, open_timeout: 10, read_timeout: 60,
+                   max_retries: 2, retry_base: 0.5)
       @access_token = access_token
       @client_id = client_id
       @client_secret = client_secret
       @base_url = base_url
       @open_timeout = open_timeout
       @read_timeout = read_timeout
+      @max_retries = max_retries
+      @retry_base = retry_base
       @token_expires_at = nil
       @token_mutex = Mutex.new
 
@@ -95,16 +104,44 @@ module SuperPDP
     def patch(path, body = {}, query = {}) = request(:patch, path, body: body, query: query)
     def delete(path, query = {}) = request(:delete, path, query: query)
 
+    # Retries transient failures (429 + 502/503/504 + connection errors) with
+    # backoff for idempotent verbs only. See RETRYABLE_* constants.
     def request(method, path, query: {}, body: nil, raw: false)
       uri = build_uri(path, query)
-      req = build_request(method, uri, body)
-      req["Authorization"] = "Bearer #{token}"
+      attempt = 0
+      loop do
+        attempt += 1
+        res =
+          begin
+            perform(method, uri, body)
+          rescue *RETRYABLE_ERRORS
+            raise unless retryable?(method, attempt)
 
-      res = http(uri).request(req)
-      handle_response(res, raw: raw)
+            sleep backoff(attempt)
+            next
+          end
+        return handle_response(res, raw: raw) unless retry_status?(method, res.code.to_i, attempt)
+
+        sleep(retry_after(res) || backoff(attempt))
+      end
     end
 
     private
+
+    def perform(method, uri, body)
+      req = build_request(method, uri, body)
+      req["Authorization"] = "Bearer #{token}"
+      http(uri).request(req)
+    end
+
+    def retryable?(method, attempt) = RETRYABLE_METHODS.include?(method) && attempt <= @max_retries
+    def retry_status?(method, status, attempt) = retryable?(method, attempt) && RETRYABLE_STATUSES.include?(status)
+    def backoff(attempt) = @retry_base * (2**(attempt - 1))
+
+    def retry_after(res)
+      v = res["Retry-After"]
+      v =~ /\A\d+\z/ ? Integer(v) : nil # honor integer seconds; ignore HTTP-date form
+    end
 
     def build_uri(path, query)
       full = path.start_with?("/v1") || path.start_with?("http") ? path : "#{API_PREFIX}#{path}"

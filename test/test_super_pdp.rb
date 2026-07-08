@@ -75,6 +75,13 @@ class SuperPDPTest < Minitest::Test
         JSON.generate(ok: true)
       when "/v1.beta/always_503"
         return http("503 Service Unavailable", JSON.generate(message: "down"))
+      when "/v1.beta/not_here"
+        return http("404 Not Found", JSON.generate(message: "missing"))
+      when "/v1.beta/no_auth"
+        return http("401 Unauthorized", JSON.generate(message: "bad token"))
+      when "/v1.beta/always_rate_limited"
+        return http("429 Too Many Requests", JSON.generate(message: "slow down"),
+                    headers: { "Retry-After" => "7" })
       when "/v1.beta/rate_limited"
         @rl_hits = @rl_hits.to_i + 1
         if @rl_hits < 2
@@ -204,5 +211,27 @@ class SuperPDPTest < Minitest::Test
     ua = @requests.find { |r| r[:path] == "/v1.beta/companies/me" }[:headers]["user-agent"]
 
     assert_match %r{\Asuper_pdp/\d}, ua
+  end
+
+  def test_404_raises_not_found_error
+    err = assert_raises(SuperPDP::NotFoundError) { client(access_token: "tok-123").get("/not_here") }
+
+    assert_equal 404, err.status
+    assert_kind_of SuperPDP::APIError, err # backward compatible: still an APIError
+  end
+
+  def test_401_raises_unauthorized_error
+    err = assert_raises(SuperPDP::UnauthorizedError) { client(access_token: "tok-123").get("/no_auth") }
+
+    assert_equal 401, err.status
+  end
+
+  def test_429_raises_rate_limit_error_with_retry_after
+    err = assert_raises(SuperPDP::RateLimitError) do
+      client(access_token: "tok-123", max_retries: 0).get("/always_rate_limited")
+    end
+
+    assert_equal 429, err.status
+    assert_equal 7, err.retry_after
   end
 end

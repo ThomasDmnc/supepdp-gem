@@ -7,6 +7,8 @@
   the OAuth2 token under concurrent requests).
 
 ### Added
+- `User-Agent` header on every request (`super_pdp/<version> (Ruby <version>)`)
+  so the server can identify the client and version.
 - Automatic retries with backoff for transient failures (HTTP 429/502/503/504 and
   connection errors) on idempotent verbs (`GET`/`DELETE`). Honors `Retry-After`;
   configurable via `max_retries` and `retry_base`. POST/PATCH are never retried.

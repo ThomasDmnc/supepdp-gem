@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-07-08
+
 ### Fixed
 - Token refresh is now thread-safe (a shared client no longer double-fetches
   the OAuth2 token under concurrent requests).
